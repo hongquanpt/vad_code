@@ -1,0 +1,87 @@
+SYSTEM:
+  phase: 'train' # 'preprocess_training', 'preprocess_testing', 'train_DAE', 'train_GMM', 'evaluate'
+  loops: [1, 2]
+  device: "cuda:1" # "cuda:0"; "cuda:1"; "cpu"
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+DATASET:
+  name: 'ped2_tiny'
+  
+  read_format: 'PIL' # opencv
+  image_format: 'jpg'
+  
+  width: 64
+  height: 64
+  channel: 1
+  normalized: true
+  
+  num_frames: 1 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  clip_mode: 'list' # cat, stack, list
+  clip_dim: 0
+  weights_yolov5: 'libs/pytorch_yolov5/weights/yolov5s.pt'
+  train:
+    train_set: 'training'
+    batch_size_per_gpu_DAE: 500
+    batch_size_per_gpu_GMM: 1000
+    shuffle: true
+    num_workers: 0
+    pin_memory: false
+    drop_last: true
+    train_set_Img: 'training_Crop_Img'
+    train_set_Dimg: 'training_Crop_Dimg'
+
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    label_filename: 'frame_labels_ped2.npy'
+    
+MODEL:
+  name: 'GMM_DAE'
+  type: 'reconstruction'
+  
+TRAIN:
+  name: 'GMM_DAE_trainer'
+  begin_epoch: 0
+  end_epoch: 100
+  save_freq: 50
+  resume: false # false, true
+  checkpoint_filepath: './output/train/MNAD/ped2/001-2023-08-07-18-31/checkpoint/final.pt'
+  
+  losses: ['loss_RecLoss_cuda', 1, 'L2Loss', [], 
+          'loss_MemLoss_cuda', 0.0002, 'MemLoss', []]
+  
+  optimizer:
+    name: 'Adam'
+    lr: 0.01
+    weight_decay: 0.0001
+    
+  lr_scheduler:
+    use: true
+    name: 'StepLR'
+    step_size: 25 # ('StepLR')
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.6 # 'StepLR', 'MultiStepLR'
+    eta_min: 0.0 # Minimum learning rate ('CosineAnnealingLR')
+  
+  other:
+    gmm_components: 15
+    
+TEST:
+  name: 'GMM_DAE_tester'
+  checkpoint_DAE_Img: './output/train_DAE/GMM_DAE/ped2_tiny/001-2023-11-09-21-44/checkpoint/Img_epoch_100.pt'
+  checkpoint_DAE_Dimg: './output/train_DAE/GMM_DAE/ped2_tiny/001-2023-11-09-21-44/checkpoint/Dimg_epoch_100.pt'
+  checkpoint_GMM_Img: './output/train_GMM/GMM_DAE/ped2_tiny/001-2023-11-09-22-03/checkpoint/Img_GmmTheta.pkl'
+  checkpoint_GMM_Dimg: './output/train_GMM/GMM_DAE/ped2_tiny/001-2023-11-09-22-03/checkpoint/Dimg_GmmTheta.pkl'

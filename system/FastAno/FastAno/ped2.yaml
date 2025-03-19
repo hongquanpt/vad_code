@@ -1,0 +1,113 @@
+SYSTEM:
+  phase: 'train'
+  num_run: 1
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  gpus: [0, 1]
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'ped2'
+  
+  read_format: 'PIL' # PIL, CV2
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  normalized: true
+  
+  num_frames: 6 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  clip_mode: 'stack' # cat, stack, list
+  clip_dim: 0
+  
+  augmode: 'random' # 'normal_only', 'random', 'probability'
+  list_augtype: ['TMT', 'SRT']
+  list_prob_weights: [0.5, 0.5]
+  
+  patch_size_isRandom: False
+  patch_size: 60 # 30, 40, 60, 90
+  patch_size_range: [30, 90, 10] # = [start,stop,step]
+  H_cut_size: 30 # height of upper and lower discarded image blocks
+  
+  noise_isAdded: True
+  mean: 0
+  std: 0.03
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 4
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    sample_type: 'videos' # clips', 'clips_by_video'
+    
+MODEL:
+  name: 'FastAno'
+  type: 'prediction'
+  method: 'FastAno'
+  
+TRAIN:
+  name: 'FastAno_trainer'
+  begin_epoch: 0
+  end_epoch: 120
+  save_freq: 20
+  resume: false # false, true
+  dir_name: 'session_2023_12_04_19_45'
+  file_name: 'epoch_45.pth'
+
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+
+    momentum: 0.0  # SGD, RMSprop
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+
+  lr_scheduler:
+    use: true
+    name: 'CosineAnnealingLR'
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min:  0.0001 # Minimum learning rate for 'CosineAnnealingLR'
+  
+TEST:
+  name: 'FastAno_tester'
+  dir_name: 'session_2023_12_04_19_45'
+  file_name: 'epoch_45.pth'
+  train_batch_size_per_gpu: 4
+
+      #'./output/train/FastAno/ped2/001-2023-10-27-23-44/checkpoint/epoch_45.pth', #  94.60%
+      
+      # FastAno-ped2: 20 epochs
+      #'./output/train/FastAno/ped2/001_2023_12_03_13_06/checkpoint/epoch_20.pth', #  93.49%
+
+      # FastAno-ped2: 120 epochs
+      #'./output/train/FastAno/ped2/001_2023_12_03_15_41/checkpoint/epoch_120.pth', # 92.98%
+      #'./output/train/FastAno/ped2/001_120_2023_12_09_18_35/checkpoint/epoch_120.pth', # 93.22%
+

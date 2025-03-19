@@ -1,0 +1,242 @@
+SYSTEM:
+  phase: 'train'
+  num_run: 1
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  gpus: [0, 1]
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'avenue'
+  
+  read_format: 'PIL' # PIL, CV2
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  normalized: true
+  
+  num_frames: 5 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  # (3,256,256) => cat => (15,256,256)
+  # (3,256,256) => stack => (5,3,256,256)
+  clip_mode: 'cat' # cat, stack, list
+  clip_dim: 0
+
+  dict_sf:
+    p: 0.0  # xac suat skip_frames: 0.01, 0.005
+    s: [2,3,4,5]  # so luong skip_frames, lay ngau nhien trong [2,..5]
+
+  dict_kf:
+    p: 0.01  # xac suat key_frames: 0.01, 0.005, 0.002
+
+  dict_patch:
+    p: 0.0  # xac suat add patch vao frames
+    alpha: 0.5  # control the maximum size of the patch relative to the frame size: posW and posH= random in [10,alphaW] and [10,alphaH]
+    beta: 25  # adjust the maximum movement of the patch in terms of pixels: new_pos= (center_pos + random in [-beta,beta])
+    technique: 'SmoothMixS'
+    intruder: 'CIFAR-100'
+
+  dict_shake:
+    p: 0.0  # xac suat rung lac camera
+    rot: [1,3]  # degree for rotation
+    trans: [0.01,0.02]  # percentage pixels for translation
+  
+  train:
+    train_set: 'training_22'
+    batch_size_per_gpu: 4
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    # training_KF_OF_30: 'training_keyframes_op_0.30'
+    # training_KF_KM_30: 'training_keyframes_DeepKmean_0.30';
+    # training_KF_GA_30: 'training_keyframes_Entropy_0.30'
+    # training_KF_ES_30: (key frames with entropy sorted)
+    # training_KF_EM: (key frames with entropy medium)
+    # training_KF_EN: (key frames with entropy medium no adjacent)
+    keyframes_dir: 'training_KF_EN_22'
+
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'avenue.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'PAMAE'
+  type: 'prediction'
+  method: 'PAMAE_KF_EN'
+  # PAMAE_SF (Skip Frames): p_sf=0.01
+  # PAMAE_KF_OF (Key Frames with Optical Flow): p_kf=0.01
+  # PAMAE_KF_KM (Key Frames with K-Mean)
+  # PAMAE_KF_ES (Key Frames with Entropy Sorted)
+  # PAMAE_KF_EM (Key Frames with Entropy Medium)
+  # PAMAE_KF_EN (Key Frames with Entropy medium No adjacent)
+  # PAMAE_SF_KF_OF (Skip Frames with Key Frames): p_sf=0.005, p_kf=0.005
+  
+TRAIN:
+  name: 'pamae_trainer'
+  begin_epoch: 0
+  end_epoch: 60
+  save_freq: 5
+  resume: false # false, true
+  dir_name: 'session_2024_02_26_17_57'
+  checkpoint_source: 'session_2024_02_21_00_21'
+  checkpoint_destination: 'session_2024_02_17_00_01'
+  file_name: 'epoch_26.pth'
+  
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: true
+    name: 'CosineAnnealingLR'
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 0.0 # Minimum learning rate for 'CosineAnnealingLR'
+  
+  other_params:
+    feature_dim: 512
+    memory_dim: 512
+    memory_size: 10
+    
+    loss_compact: 0.1
+    loss_separate: 0.1
+
+    loss_type: 'IC' # 'ICS or 'IC' (Intensity, Compact, Separate)
+TEST:
+  name: 'pamae_tester'
+  dir_name: 'session_2024_02_26_17_57'
+  file_name: 'epoch_60.pth'
+  plot_types: ['none']   # 'none', 'gif', 'video', 'csv'
+  plot_video_ids: [-1]   # list of selected video_ids (>=1) to plot, [-1] for all, [0] for none
+  train_batch_size_per_gpu: 4
+  psnr_types: ['psnr_1', 'psnr_frame'] # 'psnr_max', 'psnr_frame', 'psnr_1', 'psnr_patch'
+
+  other_params:
+    # ano_score_alpha: [ 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0 ]
+    ano_score_alpha: [0.5]
+    update_threshold: 0.01
+    
+    # =================================
+    # PAMAE_KF_EN (keyframe_no_adjacent_medium_Entropy (EN))
+    # =================================
+    # b_loss = torch.mean(-pixel_loss[b]) - (loss_compact + loss_separate) / (1.0 * bz)
+    # p_kf=0.002,bz=4,epoch=60;
+    # session_2024_03_02_16_29: (RTX)
+      # epoch_60.pth: best_AUC=87.78 best_alpha(AUC)=0.3
+
+    # =================================
+    # b_loss = -torch.mean(pixel_loss[b]) - torch.mean(loss_compact) - torch.mean(loss_separate)
+    # ===================================
+    # p_kf=0.002,bz=4,epoch=60;
+    # ===================================
+    # session_2024_03_23_22_51: server1
+      # best_AUC = 88.80 best_alpha(AUC) = 0.4; best_AUC = 88.62 alpha = 0.3
+      # best_AUC = 88.70 best_alpha(AUC) = 0.5; best_AUC = 88.31 best_alpha(AUC) = 0.6
+      # best_AUC = 87.66 best_alpha(AUC) = 0.7; best_AUC = 86.78 best_alpha(AUC) = 0.8
+
+    # ==================================================================
+    # NewLoss01
+    # b_loss = -torch.mean(pixel_loss[b]) - torch.mean(loss_compact[b])
+    # loss = torch.mean(stacked_loss_mse)
+    # ===================================
+    # p_kf=0.002,bz=4,epoch=60; (VideoDataset)
+    # ===================================
+    # session_2024_04_22_15_00: best_AUC=83.19 best_alpha(AUC)=0.5
+    # session_2024_04_23_16_36: best_AUC=84.83 best_alpha(AUC)=0.5
+
+    # ==================================================================
+    # NewLoss02
+    # b_loss = -torch.mean(pixel_loss[b]) - torch.mean(loss_compact[b]) + torch.mean(loss_separate[b])
+    # loss = torch.mean(stacked_loss_mse)
+    # ===================================
+    # p_kf=0.002,bz=4,epoch=60; (VideoDataset)
+    # ===================================
+    # session_2024_04_24_13_42: best_AUC=83.99 best_alpha(AUC)=0.5
+    # session_2024_04_25_13_32: best_AUC=86.71 best_alpha(AUC)=0.5
+
+    # ==================================================================
+    # NewLoss04
+    # ==================================================================
+    # b_loss = -torch.mean(pixel_loss[b]) - torch.mean(loss_compact[b])
+    # loss = torch.mean(stacked_loss_mse)
+    # ===================================
+    # p_kf=0.002,bz=4,epoch=60; (VideoDataset), no update memory with abnormal
+    # ===================================
+    # session_2024_04_30_23_38: best_AUC=85.68 best_alpha(AUC)=0.5
+    # session_2024_05_01_16_54: best_AUC=85.35 best_alpha(AUC)=0.5
+
+    # ===================================
+    # p_kf=0.01,bz=4,epoch=60; (VideoDataset), no update memory with abnormal
+    # ===================================
+    # session_2024_05_02_11_11: best_AUC=86.41 best_alpha(AUC)=0.5
+    # session_2024_05_12_08_58: (clone from epoch_5.pth session_2024_03_23_22_51): 85.98
+
+    # ==================================================================
+    # NewLoss04-Memory15
+    # ==================================================================
+    # b_loss = -torch.mean(pixel_loss[b]) - torch.mean(loss_compact[b])
+    # loss = torch.mean(stacked_loss_mse)
+    # ===================================
+    # p_kf=0.01,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # session_2024_05_03_04_52: best_AUC=88.10 best_alpha(AUC)=0.5
+    # session_2024_05_11_13_37: best_AUC=87.06 best_alpha(AUC)=0.5
+
+    # ===================================
+    # p_kf=0.05,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # session_2024_05_04_13_10: best_AUC=85.66 best_alpha(AUC)=0.5
+    # session_2024_05_13_09_17: best_AUC=85.96 best_alpha(AUC)=0.5
+
+    # ===================================
+    # p_kf=0.1,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # :
+
+    # ==================================================================
+    # NewLoss05-Memory15
+    # ==================================================================
+    # b_loss = -torch.mean(pixel_loss[b])
+    # loss = torch.mean(stacked_loss_mse)
+    # ===================================
+    # p_kf=0.01,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # session_2024_05_05_11_03: best_AUC=85.10 best_alpha(AUC)=0.5
+    # session_2024_05_06_07_18: best_AUC=85.08 best_alpha(AUC)=0.5
+
+    # ===================================
+    # p_kf=0.05,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # :
+
+    # ===================================
+    # p_kf=0.1,bz=4,epoch=60; (VideoDataset), no update memory with abnormal, memory_size=15
+    # ===================================
+    # :

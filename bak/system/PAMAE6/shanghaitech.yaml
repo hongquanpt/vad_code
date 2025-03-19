@@ -1,0 +1,126 @@
+SYSTEM:
+  phase: 'train'
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'shanghaitech'
+  
+  read_format: 'PIL' # opencv
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  normalized: true
+  
+  num_frames: 5 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  clip_mode: 'cat' # cat, stack, list
+  clip_dim: 0
+  skip_frames: [2,3,4,5]
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 4
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    # 'training_keyframes_DeepKmean_0.30'; 
+    # 'training_keyframes_op_0.30'
+    # 'training_keyframes_Entropy_0.30'
+    keyframes_dir: 'training_keyframes_op_0.30'
+    
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'avenue.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'PAMAE6'
+  type: 'prediction'
+  
+TRAIN:
+  name: 'pamae_trainer'
+  begin_epoch: 0
+  end_epoch: 10
+  save_freq: 1
+  resume: false # false, true
+  dir_name: 'session_2023_12_04_19_45'
+  file_name: 'epoch_1.pth'
+  
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: true
+    name: 'CosineAnnealingLR'
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 0.0 # Minimum learning rate for 'CosineAnnealingLR'
+  
+  other_params:
+    feature_dim: 512
+    memory_dim: 512
+    memory_size: 10
+
+    # pseudo anomalies with skipframes
+    skip_frames_prob: 0.01
+    loss_compact: 0.1
+    loss_separate: 0.1
+
+    # pseudo anomalies with patch
+    max_size: 0.1
+    max_move: 0
+TEST:
+  name: 'pamae_tester'
+  dir_name: 'session_'
+  # OpticalFlow, patch: session_ : p=0.01; patch(max_size=0.1;max_move=0); epoch_10; AUC= alpha= ;
+  file_name: 'epoch_10.pth'
+  train_batch_size_per_gpu: 4
+    #==================================================
+    # PAMAE6-avenue: skip_frame_prob=0.002; keyframes=0.3 + patch(max_size=0.2;max_move=10); epochs=60 
+    #==================================================
+    #'./output/train/PAMAE6/avenue/001_0.002_60_2023_12_06_12_42/checkpoint/epoch_45.pth',
+    #  82.86%(1.0),  82.92%(0.9), 82.99%(0.8),  83.04%(0.7),  83.10%(0.6),  83.16%(0.5),  83.21%(0.4),  83.27%(0.3),  83.32%(0.2),  83.37%(0.1),  77.68%(0.0)
+    
+
+    #============================================================================
+    # PAMAE6-avenue: skip_frame_prob=0.002; keyframes=0.3 + patch(max_size=0.1;max_move=0); epochs=60 
+    #==================================================
+    #'./output/train/PAMAE6/avenue/001_0.002_60_2023_12_07_19_37/checkpoint/epoch_45.pth',
+    # 84.06%(1.0), 84.43%(0.9), 84.79%(0.8), 85.10%(0.7), 85.33%(0.6), 85.42%(0.5), 85.31%(0.4), 84.93%(0.3), 84.12%(0.2), 82.34%(0.1), 78.92%(0.0)
+
+    #'./output/train/PAMAE6/avenue/002_0.002_60_2023_12_08_05_18/checkpoint/epoch_45.pth',
+    # 83.67%(1.0), 83.98%(0.9), 84.25%(0.8), 84.45%(0.7), 84.56%(0.6), 84.51%(0.5), 84.21%(0.4), 83.58%(0.3), 82.49%(0.2),  80.31%(0.1), 74.61%(0.0)
+
+  other_params:
+    ano_score_alpha: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]
+    update_threshold: 0.01
+

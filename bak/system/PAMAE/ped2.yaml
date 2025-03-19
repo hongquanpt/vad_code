@@ -1,0 +1,104 @@
+SYSTEM:
+  phase: 'train'
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+DATASET:
+  name: 'ped2'
+  
+  read_format: 'PIL' # opencv
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  normalized: true
+  
+  num_frames: 5 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  clip_mode: 'cat' # cat, stack, list
+  clip_dim: 0
+  skip_frames: [2,3,4,5]
+  
+  augmode: 'normal_only'
+  list_augtype: ['normal_only', 'TMT', 'SRT', 'gaussian_noise', 'simplex_noise']
+  list_prob_weights: [0.0, 0.5, 0.5, 0.0, 0.0]
+  patch_size: 90
+  H_cut_size: 30
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 4
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'PAMAE'
+  type: 'prediction'
+  
+TRAIN:
+  name: 'pamae_trainer'
+  begin_epoch: 0
+  end_epoch: 60
+  save_freq: 10
+  resume: false # false, true
+  dir_name: 'session_2023_12_04_19_45_45'  # 'session_2023_12_25_22_44_1'
+  file_name: 'epoch_45.pth'  # 'epoch_1.pth'
+
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: true
+    name: 'MultiStepLR'
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 0.0 # Minimum learning rate for 'CosineAnnealingLR'
+  
+  other_params:
+    feature_dim: 512
+    memory_dim: 512
+    memory_size: 10
+    
+    skip_frames_prob: 0.002
+    loss_compact: 0.1
+    loss_separate: 0.1
+  
+TEST:
+  name: 'pamae_tester'
+  dir_name: 'session_2023_12_04_19_45_45'  # 'session_2023_12_25_22_44_1'
+  file_name: 'epoch_45.pth'  # 'epoch_1.pth'
+  other_params:
+    ano_score_alpha: [0.6, 0.7, 0.8, 0.9, 1.0]
+    update_threshold: 0.01
+

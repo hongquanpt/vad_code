@@ -1,0 +1,151 @@
+SYSTEM:
+  phase: 'train'
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'ped2'
+  
+  read_format: 'PIL' # opencv
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  normalized: true
+  
+  num_frames: 5 # 5 for prediction, 1 for reconstruction
+  frame_steps: 1
+  clip_mode: 'cat' # cat, stack, list
+  clip_dim: 0
+  skip_frames: [2,3,4,5]
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 2
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    # 'training_keyframes_DeepKmean_0.30'; 
+    # 'training_keyframes_op_0.30'
+    # 'training_keyframes_Entropy_0.30'
+    keyframes_dir: 'training_keyframes_op_0.30' 
+    
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'PAMAE5'
+  type: 'prediction'
+  
+TRAIN:
+  name: 'pamae_trainer'
+  begin_epoch: 0
+  end_epoch: 60
+  save_freq: 5
+  resume: false # false, true
+  dir_name: 'session_2023_12_28_22_00'
+  file_name: 'epoch_45.pth'
+  
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: true
+    name: 'CosineAnnealingLR'
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 0.0 # Minimum learning rate for 'CosineAnnealingLR'
+  
+  other_params:
+    feature_dim: 512
+    memory_dim: 512
+    memory_size: 10
+    
+    skip_frames_prob: 0.002
+    loss_compact: 0.1
+    loss_separate: 0.1
+    print_seq: 1000
+TEST:
+  name: 'pamae_tester'
+  dir_name: 'session_2023_12_04_16_28'
+  # Deep K-mean: session_2023_12_04_01_40: p=0.002,bz=4,epoch=60; Best AUC=98.38 alpha=0.5
+  # Deep K-mean: session_2023_12_03_22_55: p=0.002,bz=4,epoch=60; Best AUC=97.43 alpha=0.3
+  # Entropy: session_2023_12_28_09_19: p=0.002,bz=4,epoch=60; Best AUC=98.14 alpha=0.5
+  # Optical Flow: session_2023_12_28_22_00: p=0.002,bz=4,epoch=60; Best AUC=97.37 alpha=0.7
+
+  # Deep K-mean: session_2023_12_04_17_39: p=0.002,bz=4,epoch=45; Best AUC=98.38 alpha=0.4
+  # Deep K-mean: session_2023_12_04_16_28: p=0.002,bz=4,epoch=45; Best AUC=98.87 alpha=0.2
+
+  # Optical Flow: session_: p=0.002;bz=4;epoch=60;
+  # Optical Flow: session_: p=0.002;bz=4;epoch=45;
+  file_name: 'epoch_45.pth'
+  train_batch_size_per_gpu: 4
+  
+    #======================================================================================
+    # ped2: p=0.002; keyframes=0.3; epochs=60
+    #======================================================================================
+    #'./output/train/PAMAE5/ped2/001_0.002_60_2023_12_03_22_55/checkpoint/epoch_45.pth',
+    # 96.57%(1.0), 96.71%(0.9), 96.84% (0.8), 96.97%(0.7), 97.11%(0.6), 97.24%(0.5), 97.35%(0.4), 97.43%(0.3), 97.41%(0.2), (0.1), 95.99%(0.0)
+    
+    #'./output/train/PAMAE5/ped2/002_0.002_60_2023_12_04_01_40/checkpoint/epoch_45.pth',
+    # 97.71%(1.0), 98.01%(0.9), 98.19% (0.8), 98.30% (0.7), 98.36% (0.6), 98.38%(0.5), 98.33%(0.4), 98.23%(0.3), 97.99%(0.2), (0.1), 96.06%(0.0)
+
+    #==================================================
+    # ped2: p=0.002; keyframes=0.3; epochs=45 
+    #==================================================
+    # BEST:
+    #'./output/train/PAMAE5/ped2/001_0.002_45_2023_12_04_16_28/checkpoint/epoch_45.pth',
+    # 98.47%(1.0), 98.55%(0.9), 98.61%(0.8), 98.66%(0.7), 98.70% (0.6), 98.73%(0.5), 98.78%(0.4), 98.83%(0.3), 98.87%(0.2), 98.84%(0.1), 97.72%(0.0)
+   
+    #'./output/train/PAMAE5/ped2/002_0.002_45_2023_12_04_17_39/checkpoint/epoch_45.pth',
+    # 96.17%(1.0), 97.27%(0.9), 97.78% (0.8), 98.07%(0.7), 98.25%(0.6), 98.35%(0.5), 98.38%(0.4), 98.33%(0.3), 98.21%(0.2), 98.03%(0.1), 97.79%(0.0)
+
+    #==================================================
+    # ped2: p=0.002; keyframes_opticalflow=0.3; epochs=45
+    #==================================================
+    #'./output/train/PAMAE5/ped2/001_0.002_45_2023_12_21_11_28/checkpoint/epoch_45.pth',
+    # 97.67%(1.0), 97.76%(0.9), 97.82%(0.8), 97.83%(0.7), 97.76% (0.6), 97.64%(0.5), 97.41%(0.4), 96.93%(0.3), 96.00%(0.2), 93.89%(0.1), 89.20%(0.0)
+    #'./output/train/PAMAE5/ped2/002_0.002_45_2023_12_21_12_39/checkpoint/epoch_45.pth',
+    # 96.73%(1.0), 97.06%(0.9), 97.20%(0.8), 97.27%(0.7), 97.32%(0.6), 97.35%(0.5), 97.36%(0.4), 97.30%(0.3), 96.97%(0.2), 96.03%(0.1), 79.36%(0.0)
+
+    #==================================================
+    # ped2: p=0.002; keyframes_opticalflow=0.3; epochs=60
+    #==================================================
+    #'./output/train/PAMAE5/ped2/001_0.002_60_2023_12_21_16_53/checkpoint/epoch_45.pth',
+    # 98.15%(1.0), 98.13%(0.9), 98.10%(0.8), 98.06%(0.7), 98.01% (0.6), 97.96%(0.5), 97.91%(0.4), 97.82%(0.3), 97.73%(0.2), 97.63%(0.1), 92.25%(0.0)
+    #'./output/train/PAMAE5/ped2/002_0.002_60_2023_12_21_18_27/checkpoint/epoch_45.pth',
+    # 97.45%(1.0), 97.61%(0.9), 97.68%(0.8), 97.69%(0.7), 97.63%(0.6), 97.43%(0.5), 97.13%(0.4), 96.70%(0.3), 96.15%(0.2), 95.32%(0.1), 90.34%(0.0)
+
+  other_params:
+    ano_score_alpha: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]
+    update_threshold: 0.01
+

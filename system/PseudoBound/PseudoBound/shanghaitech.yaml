@@ -1,0 +1,124 @@
+SYSTEM:
+  phase: 'train'
+  num_run: 1
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  gpus: [0, 1]
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'shanghaitech'
+  
+  read_format: 'CV2' # PIL, CV2
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 1
+  normalized: true
+  
+  num_frames: 16 #
+  frame_steps: 1
+  clip_mode: 'stack' # cat, stack, list
+  clip_dim: 1
+  
+  dict_sf:
+    p: 0.01  # xac suat skip_frames
+    s: [2,3,4,5]  # so luong skip_frames, lay ngau nhien trong [2,..5]
+
+  dict_rf:
+    p: 0.01  # xac suat repeat_frames
+    r: [2,3]  # so luong reapeat_frames, lay ngau nhien trong [2,3]
+
+  dict_patch:
+    p: 0.01  # xac suat add patch vao frames
+    alpha: 0.5  # control the maximum size of the patch relative to the frame size: posW and posH= random in [10,alphaW] and [10,alphaH]
+    beta: 25  # adjust the maximum movement of the patch in terms of pixels: new_pos= (center_pos + random in [-beta,beta])
+    technique: 'SmoothMixS'
+    intruder: 'CIFAR-100'
+
+  dict_fusion:
+    p: 0.01  # xac suat ket hop 2 frames
+
+  dict_noise:
+    p: 0.01  # xac suat add noise vao frames
+    sigma: 0.05  # Gaussian noise G(0,sigma)
+
+  dict_shake:
+    p: 0.0  # xac suat rung lac camera
+    rot: [1,3]  # degree for rotation
+    trans: [0.01,0.02]  # percentage pixels for translation
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 4
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+    
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'PseudoBound'
+  type: 'reconstruction'
+  method: 'PseudoBound'
+  
+TRAIN:
+  name: 'PseudoBound_trainer'
+  begin_epoch: 0
+  end_epoch: 10
+  save_freq: 1
+  resume: true # false, true
+  dir_name: 'session_2024_02_14_00_37' 
+  file_name: 'epoch_4.pth'
+
+  optimizer:
+    name: 'Adam'
+    lr: 1e-4  #0.0001
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: false
+    name: 'MultiStepLR' # # LinearLR, StepLR, MultiSetpLR, CosineAnnealingLR
+    step_size: 20 # for StepLR
+    milestones: [20, 40] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 0.0 # Minimum learning rate for 'CosineAnnealingLR'
+
+  other_params:
+    skip_frames_prob: 0.01
+TEST:
+  name: 'PseudoBound_tester'
+  dir_name: 'session_2024_02_14_00_37'
+  file_name: 'epoch_10.pth'
+  train_batch_size_per_gpu: 4
+  psnr_types: ['psnr_max'] # 'psnr_max', 'psnr_1'
+
+  # 
+
+

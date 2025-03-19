@@ -1,0 +1,104 @@
+SYSTEM:
+  phase: 'train'
+  num_run: 1
+  device: "cuda:0" # "cuda:0"; "cuda:1"; "cpu"
+  gpus: [0, 1]
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+  neptune:
+    use: true
+DATASET:
+  name: 'avenue'
+  
+  read_format: 'PIL' # PIL, CV2
+  image_format: 'jpg'
+  
+  width: 224
+  height: 288
+  channel: 3
+  normalized: true
+  
+  num_frames: 5 # 5 for prediction, 1 for reconstruction
+  frame_steps: 2
+  clip_mode: 'list' # cat, stack, list
+  clip_dim: 0
+  
+  train:
+    train_set: 'training'
+    batch_size_per_gpu: 2
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+    sample_type: 'clips' #  'videos', 'clips', 'clips_by_video'
+
+  test:
+    test_set: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'avenue.mat'
+    sample_type: 'videos' # videos', 'clips_by_video'
+    
+MODEL:
+  name: 'ASTNet'
+  type: 'prediction'
+  method: 'ASTNet'
+  
+TRAIN:
+  name: 'astnet_trainer'
+  begin_epoch: 0
+  end_epoch: 50
+  save_freq: 10
+  resume: false # false, true
+  dir_name: 'session_2023_12_04_19_45'
+  file_name: 'epoch_45.pth'
+
+  optimizer:
+    name: 'Adam'
+    lr: 2e-4  #0.0002
+    betas: [ 0.9, 0.999 ]
+    eps: 1e-8
+    weight_decay: 0.0  # Adam, SGD, RMSprop
+
+    momentum: 0.0  # SGD, RMSprop
+    nesterov: false  # SGD
+    rmsprop_alpha: 0.99  # RMSprop
+    rmsprop_centered: false  # RMSprop
+    
+  lr_scheduler:
+    use: true
+    name: 'CosineAnnealingLR' # 'MultiStepLR'
+    step_size: 20 # for StepLR
+    milestones: [80, 100] # for MultiStepLR
+    gamma: 0.1  # for StepLR, MultiStepLR
+    eta_min: 1e-4 # Minimum learning rate for 'CosineAnnealingLR'
+  
+  other_params:
+    pretrained_model: 'wrn38'
+    pretrained_seg_weights: 'dataset/seg_weights/wider_resnet38.pth.tar'
+    memory_size: 5
+    encoded_frames: 4
+    decoded_frames: 0
+    final_conv_kernel: 3
+    print_seq: 10
+    
+TEST:
+  name: 'astnet_tester'
+  dir_name: 'session_2023_12_04_19_45'
+  file_name: 'epoch_45.pth'
+  train_batch_size_per_gpu: 2
+      #'./output/train/ASTNet/ped2/001-2023-10-04-22-23/checkpoint/final_checkpoint.pth' # AUC: 94.81% (frame_steps = 1) 661.45 seconds
+      #'./output/train/ASTNet/ped2/001-2023-10-06-14-33/checkpoint/final_checkpoint.pth' # AUC: 92.21% (frame_steps = 3) 229.36 seconds
+     #'./output/train/ASTNet/ped2/001-2023-10-06-14-45/checkpoint/final_checkpoint.pth' # AUC:   (frame_steps = 2)  335.79 seconds
+
+

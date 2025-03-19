@@ -1,0 +1,95 @@
+SYSTEM:
+  phase: 'train'
+  loop_index: 1
+  device: "cuda:1" # "cuda:0"; "cuda:1"; "cpu"
+  cudnn:
+    benchmark: true
+    deterministic: false
+    enable: true
+  output:
+    log_dir: 'log'
+    tesorboard_dir: 'tensorboard'
+    checkpoint_dir: 'checkpoint'
+    visualization_dir: 'visualization'
+DATASET:
+  name: 'ped2'
+  
+  read_format: 'PIL' # opencv
+  image_format: 'jpg'
+  
+  width: 256
+  height: 256
+  channel: 3
+  
+  num_frames: 1
+  frame_steps: 1
+  lower_bound: 100
+  clip_mode: 'list' # cat, stack, list
+  
+  z_dim: 512
+  h_dim: 512  # for LSTM hidden
+  
+  train:
+    trainset: 'training'
+    batch_size_per_gpu: 1
+    shuffle: true
+    num_workers: 4
+    pin_memory: false
+    drop_last: true
+
+  test:
+    testset: 'testing'
+    batch_size_per_gpu: 1
+    shuffle: false
+    num_workers: 4
+    pin_memory: false
+    drop_last: false
+    gt_filename: 'ped2.mat'
+    
+MODEL:
+  name: 'ConvVAE_Recon'
+  type: 'reconstruction'
+  
+TRAIN:
+  name: 'ConvVAE_Recon_trainer'
+  begin_epoch: 0
+  end_epoch: 100
+  save_freq: 10
+  resume: false # false, true
+  checkpoint_filepath: './output/train/ConvVAE_Recon/ped2/001-0.01-2023-08-28-22-41/checkpoint/epoch_50.pth'
+  
+  losses: ['loss_RecLoss_cuda', 1, 'L2Loss', [], 
+          'loss_MemLoss_cuda', 0.0002, 'MemLoss', []]
+  
+  optimizer:
+    name: 'Adam'
+    learning_rate: 2e-4
+    
+  lr_scheduler:
+    use: true
+    name: 'MultiStepLR'
+    step_size: 1000
+    steps: [63800, 127600]
+    gamma: 0.1
+  
+  other_params:
+    feature_dim: 512
+    memory_dim: 512
+    memory_size: 10
+    skip_frames: (2,3,4,5)
+    skip_frames_prob: 0.01
+    patch_prob: 0.01
+    noise_prob: 0.0
+    fusion_prob: 0.0
+    loss_compact: 0.0
+    loss_separate: 0.0
+  
+TEST:
+  name: 'ConvVAE_Recon_tester'
+  checkpoint_filepaths: [
+      './output/train/ConvVAE_Recon/ped2/001-0.01-2023-08-28-22-41/checkpoint/epoch_50.pth'
+                          ]
+  other_params:
+    ano_score_alpha: [0.6, 0.7, 0.8, 0.9, 1.0]
+    update_threshold: 0.01
+
